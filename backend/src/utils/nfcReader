@@ -1,0 +1,130 @@
+const logger = require('./logger');
+
+/**
+ * Module de gestion du lecteur NFC
+ * Compatible avec les lecteurs ACR122U et similaires
+ */
+
+class NFCReader {
+  constructor() {
+    this.isReading = false;
+    this.reader = null;
+    this.onCardDetected = null;
+  }
+
+  /**
+   * Initialiser le lecteur NFC
+   */
+  async initialize() {
+    try {
+      // Note: Pour une implémentation réelle, utiliser la bibliothèque 'nfc-pcsc'
+      // const { NFC } = require('nfc-pcsc');
+      // this.reader = new NFC();
+      
+      logger.info('Lecteur NFC initialisé');
+      return true;
+    } catch (error) {
+      logger.error('Erreur lors de l\'initialisation du lecteur NFC:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Démarrer la lecture des badges NFC
+   * @param {Function} callback - Fonction appelée quand un badge est détecté
+   */
+  startReading(callback) {
+    if (this.isReading) {
+      logger.warn('Le lecteur est déjà en cours de lecture');
+      return;
+    }
+
+    this.onCardDetected = callback;
+    this.isReading = true;
+
+    // Implémentation exemple
+    // Dans un cas réel, vous utiliseriez la bibliothèque nfc-pcsc
+    /*
+    this.reader.on('reader', reader => {
+      logger.info(`Lecteur détecté: ${reader.reader.name}`);
+
+      reader.on('card', card => {
+        const uid = card.uid.toString('hex').toUpperCase();
+        logger.info(`Badge NFC détecté: ${uid}`);
+        
+        if (this.onCardDetected) {
+          this.onCardDetected(uid);
+        }
+      });
+
+      reader.on('card.off', card => {
+        logger.info('Badge retiré');
+      });
+
+      reader.on('error', err => {
+        logger.error('Erreur du lecteur:', err);
+      });
+
+      reader.on('end', () => {
+        logger.info('Lecteur déconnecté');
+      });
+    });
+
+    this.reader.on('error', err => {
+      logger.error('Erreur NFC:', err);
+    });
+    */
+
+    logger.info('Lecture NFC démarrée');
+  }
+
+  /**
+   * Arrêter la lecture des badges NFC
+   */
+  stopReading() {
+    if (!this.isReading) {
+      logger.warn('Le lecteur n\'est pas en cours de lecture');
+      return;
+    }
+
+    this.isReading = false;
+    this.onCardDetected = null;
+    
+    // Fermer le lecteur si nécessaire
+    // this.reader?.close();
+
+    logger.info('Lecture NFC arrêtée');
+  }
+
+  /**
+   * Lire un badge NFC (lecture unique)
+   * @returns {Promise<string>} UID du badge
+   */
+  async readSingle() {
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        this.stopReading();
+        reject(new Error('Timeout: Aucun badge détecté'));
+      }, 10000); // 10 secondes
+
+      this.startReading((uid) => {
+        clearTimeout(timeout);
+        this.stopReading();
+        resolve(uid);
+      });
+    });
+  }
+
+  /**
+   * Vérifier si un lecteur est connecté
+   * @returns {Promise<boolean>}
+   */
+  async isConnected() {
+    // Implémentation à adapter selon le matériel
+    return true;
+  }
+}
+
+// Export singleton
+const nfcReader = new NFCReader();
+module.exports = nfcReader;
