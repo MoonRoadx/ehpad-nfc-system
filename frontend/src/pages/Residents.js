@@ -48,7 +48,7 @@ function Residents() {
       loadResidents();
     } catch (error) {
       console.error('Erreur ajout résident:', error);
-      alert('❌ Erreur lors de l\'ajout du résident');
+      alert('Erreur lors de l\'ajout du résident');
     }
   };
 
@@ -263,4 +263,58 @@ function Residents() {
         ) : (
           <div style={{
             background: 'white',
-            borderRadius: '
+            borderRadius: '12px',
+            padding: '1.5rem',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+          }}>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ borderBottom: '2px solid #e2e8f0' }}>
+                    <th style={{ padding: '1rem', textAlign: 'left', color: '#475569', fontWeight: '600' }}>Nom Complet</th>
+                    <th style={{ padding: '1rem', textAlign: 'left', color: '#475569', fontWeight: '600' }}>Chambre</th>
+                    <th style={{ padding: '1rem', textAlign: 'left', color: '#475569', fontWeight: '600' }}>Date de naissance</th>
+                    <th style={{ padding: '1rem', textAlign: 'left', color: '#475569', fontWeight: '600' }}>Contact d'urgence</th>
+                    <th style={{ padding: '1rem', textAlign: 'left', color: '#475569', fontWeight: '600' }}>Statut</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {residents.map((resident) => (
+                    <tr key={resident.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                      <td style={{ padding: '1rem', color: '#1e293b', fontWeight: '500' }}>
+                        {resident.firstName} {resident.lastName}
+                      </td>
+                      <td style={{ padding: '1rem', color: '#64748b' }}>
+                        {resident.roomNumber || '—'}
+                      </td>
+                      <td style={{ padding: '1rem', color: '#64748b' }}>
+                        {new Date(resident.dateOfBirth).toLocaleDateString('fr-FR')}
+                      </td>
+                      <td style={{ padding: '1rem', color: '#64748b' }}>
+                        {resident.emergencyContactName || '—'}
+                      </td>
+                      <td style={{ padding: '1rem' }}>
+                        <span style={{
+                          padding: '0.25rem 0.75rem',
+                          borderRadius: '12px',
+                          fontSize: '0.85rem',
+                          fontWeight: '600',
+                          background: resident.isActive ? '#dcfce7' : '#fee2e2',
+                          color: resident.isActive ? '#166534' : '#991b1b'
+                        }}>
+                          {resident.isActive ? '✅ Actif' : '❌ Inactif'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
+    </Layout>
+  );
+}
+
+export default Residents;
