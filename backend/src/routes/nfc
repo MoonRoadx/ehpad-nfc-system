@@ -1,0 +1,187 @@
+const express = require('express');
+const router = express.Router();
+const db = require('../database/db');
+const auth = require('../middleware/auth');
+const logger = require('../utils/logger');
+const nfcReader = require('../utils/nfcReader');
+
+// POST - Scanner un badge NFC
+router.post('/scan', auth, async (req, res) => {
+  try {
+    const { badgeUid } = req.body;
+    
+    if (!badgeUid) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'UID du badge requis' 
+      });
+    }
+    
+    // Rechercher le résident associé au badge
+    const result = await db.query(`
+      SELECT r.*, n.badge_uid, n.last_scanned
+      FROM residents r
+      JOIN nfc_badges n ON r.id = n.resident_id
+      WHERE n.badge_uid = $1 AND n.is_active = true AND r.is_active = true
+    `, [badgeUid]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'Badge non reconnu ou inactif' 
+      });
+    }
+    
+    const resident = result.rows[0];
+    
+    // Enregistrer le scan dans l'historique
+    await db.query(`
+      INSERT INTO scans_history (resident_id, badge_uid, scanned_by, scan_location)
+      VALUES ($1, $2, $3, $4)
+    `, [resident.id, badgeUid, req.user.id, req.body.location || 'Non spécifié']);
+    
+    // Mettre à jour la date du dernier scan
+    await db.query(`
+      UPDATE nfc_badges SET last_scanned = NOW() WHERE badge_uid = $1
+    `, [badgeUid]);
+    
+    logger.info(`Badge scanné: ${badgeUid} - Résident: ${resident.first_name} ${resident.last_name}`);
+    
+    res.json({ 
+      success: true, 
+      data: {
+        resident: {
+          id: resident.id,
+          firstName: resident.first_name,
+          lastName: resident.last_name,
+          roomNumber: resident.room_number,
+          dateOfBirth: resident.date_of_birth,
+          emergencyContact: resident.emergency_contact,
+          emergencyPhone: resident.emergency_phone,
+          allergies: resident.allergies,
+          bloodType: resident.blood_type
+        }
+      }
+    });
+  } catch (error) {
+    logger.error('Erreur lors du scan NFC:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// POST - Associer un badge à un résident
+router.post('/assign', auth, async (req, res) => {
+  try {
+    const { residentId, badgeUid } = req.body;
+    
+    if (!residentId || !badgeUid) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'ID du résident et UID du badge requis' 
+      });
+    }
+    
+    // Vérifier si le badge existe déjà
+    const existing = await db.query(
+      'SELECT * FROM nfc_badges WHERE badge_uid = $1',
+      [badgeUid]
+    );
+    
+    if (existing.rows.length > 0) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Ce badge est déjà associé à un résident' 
+      });
+    }
+    
+    // Désactiver les anciens badges du résident
+    await db.query(
+      'UPDATE nfc_badges SET is_active = false WHERE resident_id = $1',
+      [residentId]
+    );
+    
+    // Créer la nouvelle association
+    const result = await db.query(`
+      INSERT INTO nfc_badges (resident_id, badge_uid, assigned_by)
+      VALUES ($1, $2, $3)
+      RETURNING *
+    `, [residentId, badgeUid, req.user.id]);
+    
+    logger.info(`Badge ${badgeUid} associé au résident ${residentId}`);
+    res.status(201).json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    logger.error('Erreur lors de l\'association du badge:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// GET - Historique des scans
+router.get('/history', auth, async (req, res) => {
+  try {
+    const { residentId, limit = 50, offset = 0 } = req.query;
+    
+    let query = `
+      SELECT 
+        sh.*,
+        r.first_name, r.last_name,
+        u.username as scanned_by_username
+      FROM scans_history sh
+      JOIN residents r ON sh.resident_id = r.id
+      JOIN users u ON sh.scanned_by = u.id
+    `;
+    
+    const params = [];
+    if (residentId) {
+      query += ' WHERE sh.resident_id = $1';
+      params.push(residentId);
+    }
+    
+    query += ` ORDER BY sh.scanned_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+    params.push(limit, offset);
+    
+    const result = await db.query(query, params);
+    
+    res.json({ 
+      success: true, 
+      count: result.rows.length,
+      data: result.rows 
+    });
+  } catch (error) {
+    logger.error('Erreur lors de la récupération de l\'historique:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// POST - Démarrer l'écoute du lecteur NFC
+router.post('/reader/start', auth, async (req, res) => {
+  try {
+    nfcReader.startReading((badgeUid) => {
+      logger.info(`Badge détecté: ${badgeUid}`);
+      // Émettre via WebSocket si nécessaire
+    });
+    
+    res.json({ 
+      success: true, 
+      message: 'Lecteur NFC démarré' 
+    });
+  } catch (error) {
+    logger.error('Erreur lors du démarrage du lecteur:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// POST - Arrêter l'écoute du lecteur NFC
+router.post('/reader/stop', auth, async (req, res) => {
+  try {
+    nfcReader.stopReading();
+    res.json({ 
+      success: true, 
+      message: 'Lecteur NFC arrêté' 
+    });
+  } catch (error) {
+    logger.error('Erreur lors de l\'arrêt du lecteur:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+module.exports = router;
