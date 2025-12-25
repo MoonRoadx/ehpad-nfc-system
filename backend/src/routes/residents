@@ -1,0 +1,170 @@
+const express = require('express');
+const router = express.Router();
+const { body, validationResult } = require('express-validator');
+const db = require('../database/db');
+const auth = require('../middleware/auth');
+const logger = require('../utils/logger');
+
+// Middleware de validation
+const validateResident = [
+  body('firstName').trim().notEmpty().withMessage('Prénom requis'),
+  body('lastName').trim().notEmpty().withMessage('Nom requis'),
+  body('dateOfBirth').isDate().withMessage('Date de naissance invalide'),
+  body('roomNumber').optional().isString()
+];
+
+// GET - Liste tous les résidents
+router.get('/', auth, async (req, res) => {
+  try {
+    const result = await db.query(`
+      SELECT r.*, n.badge_uid, n.is_active as badge_active
+      FROM residents r
+      LEFT JOIN nfc_badges n ON r.id = n.resident_id
+      ORDER BY r.last_name, r.first_name
+    `);
+    
+    res.json({
+      success: true,
+      count: result.rows.length,
+      data: result.rows
+    });
+  } catch (error) {
+    logger.error('Erreur lors de la récupération des résidents:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// GET - Détails d'un résident
+router.get('/:id', auth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const result = await db.query(`
+      SELECT r.*, n.badge_uid, n.is_active as badge_active,
+             json_agg(json_build_object(
+               'id', mr.id,
+               'medication', mr.medication,
+               'dosage', mr.dosage,
+               'frequency', mr.frequency
+             )) as medications
+      FROM residents r
+      LEFT JOIN nfc_badges n ON r.id = n.resident_id
+      LEFT JOIN medical_records mr ON r.id = mr.resident_id
+      WHERE r.id = $1
+      GROUP BY r.id, n.badge_uid, n.is_active
+    `, [id]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'Résident non trouvé' 
+      });
+    }
+    
+    res.json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    logger.error('Erreur lors de la récupération du résident:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// POST - Créer un nouveau résident
+router.post('/', auth, validateResident, async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ success: false, errors: errors.array() });
+    }
+    
+    const {
+      firstName,
+      lastName,
+      dateOfBirth,
+      roomNumber,
+      emergencyContact,
+      emergencyPhone,
+      allergies,
+      bloodType
+    } = req.body;
+    
+    const result = await db.query(`
+      INSERT INTO residents (
+        first_name, last_name, date_of_birth, room_number,
+        emergency_contact, emergency_phone, allergies, blood_type
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      RETURNING *
+    `, [
+      firstName, lastName, dateOfBirth, roomNumber,
+      emergencyContact, emergencyPhone, allergies, bloodType
+    ]);
+    
+    logger.info(`Nouveau résident créé: ${firstName} ${lastName}`);
+    res.status(201).json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    logger.error('Erreur lors de la création du résident:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// PUT - Mettre à jour un résident
+router.put('/:id', auth, validateResident, async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ success: false, errors: errors.array() });
+    }
+    
+    const { id } = req.params;
+    const {
+      firstName, lastName, dateOfBirth, roomNumber,
+      emergencyContact, emergencyPhone, allergies, bloodType
+    } = req.body;
+    
+    const result = await db.query(`
+      UPDATE residents SET
+        first_name = $1, last_name = $2, date_of_birth = $3,
+        room_number = $4, emergency_contact = $5, emergency_phone = $6,
+        allergies = $7, blood_type = $8, updated_at = NOW()
+      WHERE id = $9
+      RETURNING *
+    `, [
+      firstName, lastName, dateOfBirth, roomNumber,
+      emergencyContact, emergencyPhone, allergies, bloodType, id
+    ]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Résident non trouvé' });
+    }
+    
+    logger.info(`Résident mis à jour: ${id}`);
+    res.json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    logger.error('Erreur lors de la mise à jour du résident:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// DELETE - Supprimer un résident (soft delete)
+router.delete('/:id', auth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const result = await db.query(`
+      UPDATE residents SET is_active = false, updated_at = NOW()
+      WHERE id = $1
+      RETURNING *
+    `, [id]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Résident non trouvé' });
+    }
+    
+    logger.info(`Résident désactivé: ${id}`);
+    res.json({ success: true, message: 'Résident désactivé' });
+  } catch (error) {
+    logger.error('Erreur lors de la suppression du résident:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+module.exports = router;
