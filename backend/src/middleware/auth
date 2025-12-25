@@ -1,0 +1,41 @@
+const jwt = require('jsonwebtoken');
+const logger = require('../utils/logger');
+
+const auth = (req, res, next) => {
+  try {
+    const token = req.header('Authorization')?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({ 
+        success: false, 
+        error: 'Authentification requise' 
+      });
+    }
+    
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = decoded;
+    next();
+  } catch (error) {
+    logger.error('Erreur d\'authentification:', error);
+    res.status(401).json({ 
+      success: false, 
+      error: 'Token invalide ou expiré' 
+    });
+  }
+};
+
+// Middleware pour vérifier le rôle
+const requireRole = (...roles) => {
+  return (req, res, next) => {
+    if (!req.user || !roles.includes(req.user.role)) {
+      return res.status(403).json({ 
+        success: false, 
+        error: 'Accès non autorisé' 
+      });
+    }
+    next();
+  };
+};
+
+module.exports = auth;
+module.exports.requireRole = requireRole;
