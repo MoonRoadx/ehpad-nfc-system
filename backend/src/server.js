@@ -1,45 +1,4 @@
 require('dotenv').config();
-// Auto-migration au démarrage
-const { pool } = require('./database/db');
-const fs = require('fs');
-const path = require('path');
-
-// Fonction pour exécuter la migration
-async function runMigrations() {
-  console.log('🔄 Vérification de la base de données...');
-  try {
-    const client = await pool.connect();
-    
-    // Vérifier si les tables existent
-    const result = await client.query(`
-      SELECT table_name 
-      FROM information_schema.tables 
-      WHERE table_schema = 'public' AND table_name = 'users'
-    `);
-    
-    if (result.rows.length === 0) {
-      console.log('📊 Création des tables...');
-      // Exécuter le script de migration
-      const { exec } = require('child_process');
-      exec('npm run migrate', (error, stdout, stderr) => {
-        if (error) {
-          console.error('Erreur migration:', error);
-          return;
-        }
-        console.log('✅ Tables créées avec succès');
-      });
-    } else {
-      console.log('✅ Tables déjà présentes');
-    }
-    
-    client.release();
-  } catch (error) {
-    console.error('⚠️ Erreur lors de la vérification:', error);
-  }
-}
-
-// Exécuter les migrations au démarrage
-runMigrations();
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -74,6 +33,32 @@ app.use('/api/medical', medicalRoutes);
 // Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// Route spéciale pour créer les tables (à utiliser une seule fois)
+app.get('/api/setup-database', async (req, res) => {
+  try {
+    const { exec } = require('child_process');
+    exec('npm run migrate', (error, stdout, stderr) => {
+      if (error) {
+        logger.error('Erreur migration:', error);
+        return res.status(500).json({ 
+          success: false, 
+          error: error.message,
+          stderr: stderr 
+        });
+      }
+      logger.info('Migration réussie');
+      res.json({ 
+        success: true, 
+        message: 'Tables créées avec succès', 
+        output: stdout 
+      });
+    });
+  } catch (error) {
+    logger.error('Erreur setup-database:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
 });
 
 // Error handling middleware
