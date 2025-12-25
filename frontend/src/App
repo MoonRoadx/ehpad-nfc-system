@@ -1,0 +1,62 @@
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from 'react-query';
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+
+import Login from './pages/Login';
+import Dashboard from './pages/Dashboard';
+import Residents from './pages/Residents';
+import ResidentDetail from './pages/ResidentDetail';
+import NFCScanner from './pages/NFCScanner';
+import Medical from './pages/Medical';
+import Settings from './pages/Settings';
+import Layout from './components/Layout';
+import ProtectedRoute from './components/ProtectedRoute';
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+});
+
+function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <Router>
+        <div className="App">
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            
+            <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/residents" element={<Residents />} />
+              <Route path="/residents/:id" element={<ResidentDetail />} />
+              <Route path="/scanner" element={<NFCScanner />} />
+              <Route path="/medical" element={<Medical />} />
+              <Route path="/settings" element={<Settings />} />
+            </Route>
+          </Routes>
+          
+          <ToastContainer
+            position="top-right"
+            autoClose={3000}
+            hideProgressBar={false}
+            newestOnTop
+            closeOnClick
+            rtl={false}
+            pauseOnFocusLoss
+            draggable
+            pauseOnHover
+          />
+        </div>
+      </Router>
+    </QueryClientProvider>
+  );
+}
+
+export default App;
