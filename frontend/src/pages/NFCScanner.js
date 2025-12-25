@@ -49,7 +49,6 @@ function NFCScanner() {
           gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))',
           gap: '2rem'
         }}>
-          {/* Formulaire de scan */}
           <div style={{
             background: 'white',
             borderRadius: '12px',
@@ -144,7 +143,6 @@ function NFCScanner() {
             </form>
           </div>
 
-          {/* Résultats */}
           <div style={{
             background: 'white',
             borderRadius: '12px',
@@ -182,4 +180,85 @@ function NFCScanner() {
               </div>
             )}
 
-            {res
+            {result && result.resident && (
+              <div style={{
+                background: 'linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%)',
+                border: '2px solid #10b981',
+                borderRadius: '12px',
+                padding: '1.5rem'
+              }}>
+                <div style={{ fontSize: '2.5rem', textAlign: 'center', marginBottom: '1rem' }}>✅</div>
+                <h4 style={{ margin: '0 0 1rem 0', color: '#065f46', fontSize: '1.3rem', textAlign: 'center' }}>
+                  Résident identifié
+                </h4>
+                <div style={{ background: 'white', borderRadius: '8px', padding: '1rem' }}>
+                  <div style={{ marginBottom: '0.75rem' }}>
+                    <span style={{ color: '#64748b', fontSize: '0.9rem' }}>Nom :</span>
+                    <p style={{ margin: '0.25rem 0 0 0', color: '#1e293b', fontWeight: '600', fontSize: '1.1rem' }}>
+                      {result.resident.firstName} {result.resident.lastName}
+                    </p>
+                  </div>
+                  <div style={{ marginBottom: '0.75rem' }}>
+                    <span style={{ color: '#64748b', fontSize: '0.9rem' }}>Chambre :</span>
+                    <p style={{ margin: '0.25rem 0 0 0', color: '#1e293b', fontWeight: '600' }}>
+                      {result.resident.roomNumber || 'Non assignée'}
+                    </p>
+                  </div>
+                  <div style={{ marginBottom: '0.75rem' }}>
+                    <span style={{ color: '#64748b', fontSize: '0.9rem' }}>Date de naissance :</span>
+                    <p style={{ margin: '0.25rem 0 0 0', color: '#1e293b', fontWeight: '600' }}>
+                      {new Date(result.resident.dateOfBirth).toLocaleDateString('fr-FR')}
+                    </p>
+                  </div>
+                  {result.resident.emergencyContactName && (
+                    <div>
+                      <span style={{ color: '#64748b', fontSize: '0.9rem' }}>Contact d'urgence :</span>
+                      <p style={{ margin: '0.25rem 0 0 0', color: '#1e293b', fontWeight: '600' }}>
+                        {result.resident.emergencyContactName}
+                      </p>
+                    </div>
+                  )}
+                </div>
+                <div style={{ marginTop: '1rem', padding: '0.75rem', background: '#fef3c7', borderRadius: '6px', fontSize: '0.9rem', color: '#92400e' }}>
+                  ℹ️ Scan enregistré le {new Date().toLocaleString('fr-FR')}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div style={{
+          marginTop: '2rem',
+          background: '#dbeafe',
+          border: '2px solid #3b82f6',
+          borderRadius: '12px',
+          padding: '1.5rem'
+        }}>
+          <h4 style={{ margin: '0 0 0.75rem 0', color: '#1e40af', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            💡 Comment utiliser le scanner
+          </h4>
+          <ul style={{ margin: 0, paddingLeft: '1.5rem', color: '#1e40af', fontSize: '0.95rem' }}>
+            <li style={{ marginBottom: '0.5rem' }}>
+              Approchez le badge NFC du lecteur ou saisissez manuellement l'UID
+            </li>
+            <li style={{ marginBottom: '0.5rem' }}>
+              Cliquez sur "Générer un UID de test" pour tester sans lecteur physique
+            </li>
+            <li>
+              Les informations du résident s'afficheront instantanément après le scan
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <style>{`
+        @keyframes pulse {
+          0%, 100% { transform: scale(1); opacity: 1; }
+          50% { transform: scale(1.05); opacity: 0.8; }
+        }
+      `}</style>
+    </Layout>
+  );
+}
+
+export default NFCScanner;
