@@ -3,7 +3,6 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const logger = require('./utils/logger');
-
 const residentsRoutes = require('./routes/residents');
 const nfcRoutes = require('./routes/nfc');
 const authRoutes = require('./routes/auth');
