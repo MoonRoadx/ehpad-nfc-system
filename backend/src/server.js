@@ -7,6 +7,7 @@ const residentsRoutes = require('./routes/residents');
 const nfcRoutes = require('./routes/nfc');
 const authRoutes = require('./routes/auth');
 const medicalRoutes = require('./routes/medical');
+const testRoutes = require('./routes/test');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -28,6 +29,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/residents', residentsRoutes);
 app.use('/api/nfc', nfcRoutes);
 app.use('/api/medical', medicalRoutes);
+app.use('/api/test', testRoutes);
 
 // Health check
 app.get('/health', (req, res) => {
